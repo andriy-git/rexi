@@ -42,11 +42,8 @@ cat > "$RUN_SCRIPT" << EOF
 
 set -e
 
-# Get the directory where this script is located
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-
 # Activate the virtual environment
-source "\$SCRIPT_DIR/.venv/bin/activate"
+source "$SCRIPT_DIR/.venv/bin/activate"
 
 # Run Rexi with all passed arguments
 python -m rexi.main "\$@"
