@@ -1,0 +1,58 @@
+{
+    "pcre_full": {
+        "name": "PCRE (Full)",
+        "description": "Full Perl Compatible Regular Expressions (using 'regex' module)",
+        "enabled_features": [
+            "anchors",
+            "quantifiers",
+            "groups",
+            "classes",
+            "alternation",
+            "escapes",
+            "named_groups",
+            "non_capturing",
+            "lookahead",
+            "lookbehind",
+            "backreferences",
+            "atomic",
+            "possessive",
+            "recursion",
+            "branch_reset",
+            "variable_lookbehind",
+            "unicode_properties",
+            "fuzzy"
+        ],
+        "use_regex_module": true
+    },
+    "python_re": {
+        "name": "Python (re)",
+        "description": "Standard Python 're' module compatibility",
+        "enabled_features": [
+            "anchors",
+            "quantifiers",
+            "groups",
+            "classes",
+            "alternation",
+            "escapes",
+            "named_groups",
+            "non_capturing",
+            "lookahead",
+            "lookbehind",
+            "backreferences"
+        ],
+        "use_regex_module": false
+    },
+    "grep_basic": {
+        "name": "Grep (Basic)",
+        "description": "Restricted feature set simulating basic grep (no lookarounds, etc.)",
+        "enabled_features": [
+            "anchors",
+            "quantifiers",
+            "groups",
+            "classes",
+            "alternation",
+            "escapes"
+        ],
+        "use_regex_module": false
+    }
+}
