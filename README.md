@@ -35,6 +35,12 @@ git clone https://github.com/royreznik/rexi.git
 cd rexi
 pip install .
 ```
+
+Or use the installation script to set up a virtual environment and make the `rexi` command available system-wide:
+```bash
+git clone https://github.com/royreznik/rexi.git
+cd rexi
+./install.sh
 ```
 
 # Usage
