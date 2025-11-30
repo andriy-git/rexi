@@ -29,6 +29,14 @@ Built with Python and leveraging the `textual` library, `rexi` offers a user-fri
 pip install rexi
 ```
 
+Or install from source:
+```bash
+git clone https://github.com/royreznik/rexi.git
+cd rexi
+pip install .
+```
+```
+
 # Usage
 ```bash
 cat /etc/hosts | rexi
