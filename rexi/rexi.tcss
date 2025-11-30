@@ -1,53 +1,194 @@
+/* Modern Dark Theme for Rexi */
+
+$background: #1e1e1e;
+$surface: #252526;
+$primary: #007acc;
+$secondary: #3e3e42;
+$text: #cccccc;
+$accent: #007acc;
+$error: #f44336;
+$success: #4caf50;
+$warning: #ff9800;
+
+Screen {
+    background: $background;
+    color: $text;
+}
+
+Header {
+    background: $surface;
+    color: $text;
+    dock: top;
+    height: 1;
+}
+
+Footer {
+    background: $surface;
+    color: $text;
+    dock: bottom;
+    height: 1;
+}
+
+/* Input Area */
+#inputs {
+    height: auto;
+    background: $surface;
+    padding: 1;
+    border-bottom: solid $secondary;
+}
+
 Input {
-    width: 70%;
+    width: 60%;
+    background: $background;
+    border: solid $secondary;
+    color: $text;
+}
+
+Input:focus {
+    border: solid $accent;
+}
+
+Select {
+    width: 20%;
+    background: $background;
+    border: solid $secondary;
+}
+
+Button {
+    width: auto;
+    min-width: 10;
+    margin-left: 1;
+    background: $secondary;
+    color: $text;
+    border: none;
+}
+
+Button:hover {
+    background: $accent;
+    color: white;
+}
+
+Button.primary {
+    background: $primary;
+    color: white;
+}
+
+Button.error {
+    background: $error;
+    color: white;
+}
+
+/* Result Area */
+#result {
+    height: 1fr;
+    layout: horizontal;
 }
 
 #output-container {
-    height: 70%;
+    width: 60%;
+    height: 100%;
+    border-right: solid $secondary;
+    background: $background;
 }
 
-#select {
-    width: 15%;
+#output-container:focus {
+    border-right: solid $accent;
 }
 
-#help {
-    width: 15%;
+#groups-container {
+    width: 40%;
+    height: 100%;
+    background: $background;
 }
 
-#inputs {
-    height: 4;
+/* Headers for containers */
+#output-container > Header, #groups-container > Header {
+    background: $secondary;
+    color: white;
+    text-align: center;
+    text-style: bold;
+}
+
+/* Content */
+#output {
+    padding: 1;
+}
+
+#groups {
+    padding: 0 1;
+}
+
+/* Modals */
+FeaturesModal {
+    align: center middle;
+    background: rgba(0,0,0,0.7);
+}
+
+#dialog {
+    grid-size: 2;
+    grid-gutter: 1;
+    grid-rows: auto;
+    padding: 1;
+    width: 80;
+    height: 80%;
+    border: thick $accent;
+    background: $surface;
+}
+
+.category-box {
+    height: auto;
+    border: solid $secondary;
+    padding: 1;
+    background: $background;
+}
+
+.category-header {
+    text-align: center;
+    text-style: bold;
+    background: $secondary;
+    color: $text;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+.category-title {
+    text-align: center;
+    text-style: bold;
+    background: $accent;
+    color: white;
+    width: 100%;
+    padding: 1;
+    column-span: 2;
+}
+
+#buttons {
+    column-span: 2;
+    height: auto;
+    align: center bottom;
+    padding-top: 1;
+    margin-top: 1;
+}
+
+Checkbox {
+    color: $text;
 }
 
 Help {
     align: center middle;
+    background: rgba(0,0,0,0.7);
 }
 
 Help > Container {
-    width: 50%;
+    width: 60%;
     height: 70%;
-    border: thick $background 80%;
+    border: thick $accent;
     background: $surface;
-
+    padding: 1;
 }
 
-Help > Container > Label{
-    margin: 1 1;
-}
-
-Help > Container > Horizontal {
-    overflow-y: auto;
-}
-
-Help > Container > Horizontal > .helpKeys {
-    width: 10%;
-    margin: 0 1
-}
-
-Help > Container > Horizontal > .helpValues {
-    width: 90%;
-}
-
-Help > Container > Button {
-    align: center middle;
-    margin: 2 2;
+Help > Container > Label {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
 }
