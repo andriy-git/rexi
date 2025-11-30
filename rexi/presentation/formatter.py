@@ -1,15 +1,26 @@
 """Formatter for regex match output."""
 
-from colorama import Fore
-
+from rich.text import Text
+from rich.table import Table
+from rich import box
 from ..data_providers.regex_provider import GroupMatch
-
-UNDERLINE = "\033[4m"
-RESET_UNDERLINE = "\033[24m"
 
 
 class RegexFormatter:
     """Formats regex match results for display."""
+    
+    # Colors for capture groups (cycling) - using backgrounds for better visibility
+    GROUP_STYLES = [
+        "bold white on dark_cyan",
+        "bold white on dark_green",
+        "bold black on yellow",
+        "bold white on dark_magenta",
+        "bold white on dark_blue",
+        "bold black on bright_cyan",
+        "bold black on bright_green",
+        "bold black on bright_yellow",
+        "bold black on bright_magenta",
+    ]
     
     def __init__(self, input_content: str):
         """Initialize the formatter with input content.
@@ -19,70 +30,92 @@ class RegexFormatter:
         """
         self.input_content = input_content
     
-    def create_highlighted_output(self, matches: list[list[GroupMatch]]) -> str:
+    def create_highlighted_output(self, matches: list[list[GroupMatch]], current_match_index: int = -1) -> Text:
         """Create highlighted output with color codes and underlining.
+        
+        Args:
+            matches: List of matches, where each match is a list of GroupMatch objects
+            current_match_index: Index of the current match to highlight differently (default: -1 for none)
+            
+        Returns:
+            Text object with highlighting applied
+        """
+        text = Text(self.input_content)
+        
+        if not matches:
+            return text
+            
+        # Flatten matches for processing
+        all_groups = [group for match_groups in matches for group in match_groups]
+        
+        for match_idx, match_groups in enumerate(matches):
+            for group in match_groups:
+                # Group 0 (full match) gets a subtle background
+                if group.group_index == 0:
+                    if match_idx == current_match_index:
+                        # Current match gets a bright, inverted highlight
+                        text.stylize("bold reverse white", group.span[0], group.span[1])
+                    else:
+                        text.stylize("bold white on #444444", group.span[0], group.span[1])
+                # Other groups get color from palette with backgrounds
+                else:
+                    style = self.GROUP_STYLES[(group.group_index - 1) % len(self.GROUP_STYLES)]
+                    if match_idx == current_match_index:
+                        # Make current match's groups more prominent
+                        style = f"reverse {style}"
+                    text.stylize(style, group.span[0], group.span[1])
+                
+        return text
+    
+    def get_match_positions(self, matches: list[list[GroupMatch]]) -> list[int]:
+        """Get the start positions of all matches.
         
         Args:
             matches: List of matches, where each match is a list of GroupMatch objects
             
         Returns:
-            String with ANSI color codes for highlighting
+            List of character positions (start of each match)
         """
-        if not matches:
-            return self.input_content
-            
-        # Flatten matches for processing
-        all_groups = [group for match_groups in matches for group in match_groups]
-            
-        output = ""
-        # Group 0 (full match) gets underline
-        first_starts = {group.span[0] for group in all_groups if group.group_index == 0}
-        first_ends = {group.span[1] for group in all_groups if group.group_index == 0}
-        
-        # Other groups get color
-        starts = {group.span[0] for group in all_groups if group.group_index > 0}
-        ends = {group.span[1] for group in all_groups if group.group_index > 0}
-        
-        input_length = len(self.input_content)
-        
-        for character in range(input_length):
-            # Apply styles at start positions
-            if character in first_starts and character not in first_ends:
-                output += UNDERLINE
-            if character in starts and character not in ends:
-                output += Fore.RED
-                
-            # Reset styles at end positions
-            # Note: The order of reset matters if ranges coincide
-            if character in ends and character not in starts:
-                output += Fore.RESET
-            if character in first_ends and character not in first_starts:
-                output += RESET_UNDERLINE
-                
-            output += self.input_content[character]
-
-        # Handle end of string
-        if input_length in ends:
-            output += Fore.RESET
-        if input_length in first_ends:
-            output += RESET_UNDERLINE
-
-        return output
+        positions = []
+        for match_groups in matches:
+            if match_groups and match_groups[0].group_index == 0:
+                positions.append(match_groups[0].span[0])
+        return positions
     
     @staticmethod
-    def create_groups_output(matches: list[list[GroupMatch]]) -> str:
+    def create_groups_output(matches: list[list[GroupMatch]]) -> Table:
         """Create formatted output for matched groups.
         
         Args:
             matches: List of matches, where each match is a list of GroupMatch objects
             
         Returns:
-            Formatted string showing all groups
+            Rich Table showing all groups
         """
-        # Flatten matches
-        all_groups = [group for match_groups in matches for group in match_groups]
-        
-        # Only show capture groups (index > 0), not the full match
-        return "\n".join(
-            [repr(group) for group in all_groups if group.group_index > 0]
+        table = Table(
+            box=box.ROUNDED, 
+            expand=True, 
+            show_header=True,
+            show_lines=False,
+            padding=(0, 1)
         )
+        table.add_column("Match", style="cyan", no_wrap=True, width=6)
+        table.add_column("Group", style="magenta", no_wrap=True, width=6)
+        table.add_column("Name", style="green", width=12)
+        table.add_column("Value", style="white")
+        table.add_column("Span", style="yellow", justify="right", width=12)
+        
+        for i, match_groups in enumerate(matches, 1):
+            for group in match_groups:
+                if group.group_index == 0:
+                    continue
+                    
+                table.add_row(
+                    str(i),
+                    str(group.group_index),
+                    group.name or "-",
+                    group.value,
+                    f"{group.span[0]}-{group.span[1]}"
+                )
+                
+        return table
