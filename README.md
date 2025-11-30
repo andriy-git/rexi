@@ -53,6 +53,18 @@ Once the UI is open, you can:
 2. **Choose a Mode:** Select either `match` or `finditer` to apply your regex pattern.
 3. **View Results:** See the marked output based on your regex pattern and selected mode in real-time.
 
+# Testing
+To run the project tests:
+```bash
+./run_tests.sh
+```
+
+Or to run specific tests:
+```bash
+./run_tests.sh tests.test_logic
+./run_tests.sh tests.test_logic.TestLogic.test_group_match_equals
+```
+
 ## Contributing
 
 We welcome contributions from the community! Whether it's adding new features, fixing bugs, or improving documentation, your help is appreciated. Please see our contribution guidelines for more information on how to contribute to `rexi`.
