@@ -12,9 +12,10 @@ from rich.text import Text
 
 from ...data_providers.regex_provider import RegexProvider
 from ...data_providers.profile_manager import ProfileManager, RegexProfile
+from ...data_providers.awk_executor import AwkExecutor, AwkRecord
 from ...presentation.formatter import RegexFormatter
 from ..widgets.help_modal import HelpModal
-from ..widgets.features_modal import FeaturesModal
+from ..widgets.features_widget import FeaturesWidget
 
 
 # noinspection SpellCheckingInspection
@@ -24,8 +25,7 @@ class RexiApp(App[ReturnType]):
     CSS_PATH = "../../rexi.tcss"
     
     BINDINGS = [
-        ("f1", "toggle_help", "Toggle Help"),
-        ("f2", "show_features", "Features"),
+        ("f1", "toggle_view", "Toggle View"),
         ("n", "next_match", "Next Match"),
         ("N", "prev_match", "Prev Match"),
         ("i", "focus_input", "Input"),
@@ -68,7 +68,16 @@ class RexiApp(App[ReturnType]):
         self._last_matches: list = []
         
         # Panel state
-        self.showing_help = False
+        # Panel state
+        # 0: Groups (Pattern Breakdown)
+        # 1: Help
+        # 2: Features
+        self.view_mode = 0
+        
+        # AWK mode state
+        self.is_awk_mode = False
+        self.awk_executor: Optional[AwkExecutor] = None
+        self.awk_records: list[AwkRecord] = []
 
     def compose(self) -> ComposeResult:
         """Compose the UI layout."""
@@ -78,8 +87,7 @@ class RexiApp(App[ReturnType]):
             with Vertical(id="input-controls"):
                 yield Input(value=self.pattern, placeholder="Enter regex pattern", id="pattern_input")
                 with Horizontal(id="button-row"):
-                    yield Button("Features", id="features", variant="default")
-                    yield Button("Help", id="help", variant="primary")
+                    yield Button("Toggle View (F1)", id="toggle_view", variant="primary")
             
             # Right: Profile selector
             profiles = [(p.name, p.id) for p in self.profile_manager.list_profiles()]
@@ -100,9 +108,17 @@ class RexiApp(App[ReturnType]):
                 yield Static(numbered_content, id="output", markup=True)
             with ScrollableContainer(id="groups-container", can_focus=True):
                 with Header():
-                    yield Static("Pattern Breakdown (F1 for Help)", id="panel-header")
+                    yield Static("Pattern Breakdown", id="panel-header")
                 yield Static(id="groups")
                 yield Static(id="help", markup=True)
+                
+                # Initialize with current profile features
+                # Use the default profile since we haven't rendered yet
+                default_profile_id = self.profile_manager.get_default_profile_id()
+                default_profile = self.profile_manager.get_profile(default_profile_id)
+                current_features = default_profile.enabled_features if default_profile else set()
+                
+                yield FeaturesWidget(current_features, id="features_widget")
         yield Footer()
     
     def _add_line_numbers(self, content: str) -> str:
@@ -119,25 +135,55 @@ class RexiApp(App[ReturnType]):
         
         return '\n'.join(numbered_lines)
 
-    def action_toggle_help(self) -> None:
-        """Toggle between groups and help view."""
-        self.showing_help = not self.showing_help
+    def action_toggle_view(self) -> None:
+        """Toggle between groups, help, and features view."""
+        self.view_mode = (self.view_mode + 1) % 3
         
         groups_widget = self.query_one("#groups", Static)
         help_widget = self.query_one("#help", Static)
+        features_widget = self.query_one("#features_widget", FeaturesWidget)
         header_widget = self.query_one("#panel-header", Static)
         
-        if self.showing_help:
-            # Show help, hide groups
-            groups_widget.display = False
-            help_widget.display = True
-            header_widget.update("Help (F1 for Pattern)")
-            help_widget.update(self.get_help_content())
-        else:
-            # Show groups, hide help
+        # Hide all first
+        groups_widget.display = False
+        help_widget.display = False
+        features_widget.display = False
+        
+        if self.view_mode == 0:
+            # Groups View (or Fields for AWK)
             groups_widget.display = True
-            help_widget.display = False
-            header_widget.update("Pattern Breakdown (F1 for Help)")
+            if self.is_awk_mode:
+                header_widget.update("AWK Fields")
+            else:
+                header_widget.update("Pattern Breakdown")
+        elif self.view_mode == 1:
+            # Help View
+            help_widget.display = True
+            if self.is_awk_mode:
+                header_widget.update("AWK Help")
+                help_widget.update(self.get_awk_help_content())
+            else:
+                header_widget.update("Regex Help")
+                help_widget.update(self.get_help_content())
+        elif self.view_mode == 2:
+            # Features View (only for regex mode)
+            if not self.is_awk_mode:
+                features_widget.display = True
+                header_widget.update("Features Configuration")
+            else:
+                # For AWK mode, cycle back to fields (no features view)
+                self.view_mode = 0
+                groups_widget.display = True
+                header_widget.update("AWK Fields")
+
+    @on(FeaturesWidget.Changed)
+    def on_features_widget_changed(self, message: FeaturesWidget.Changed) -> None:
+        """Handle feature changes."""
+        if self.regex_provider.current_profile:
+            # Update profile
+            self.regex_provider.current_profile.enabled_features = message.enabled_features
+            # Re-run regex with new features
+            self.run_worker(self.update_regex(self.pattern), exclusive=True)
     
     def get_help_content(self) -> str:
         """Generate help content based on current profile."""
@@ -224,46 +270,187 @@ class RexiApp(App[ReturnType]):
             lines.append("[bold]Backreferences:[/bold]")
             lines.append("[cyan]\\1[/cyan]        Reference to group 1\n")
         
-        lines.append("[dim]Press F1 to return to Groups view[/dim]")
+        lines.append("[dim]Press F1 to toggle view[/dim]")
+        
+        return "\n".join(lines)
+    
+    async def _switch_to_awk_mode(self, profile: RegexProfile) -> None:
+        """Switch the UI to AWK mode."""
+        self.is_awk_mode = True
+        
+        # Initialize AWK executor based on profile
+        awk_command_map = {
+            "awk_gawk": "gawk",
+            "awk_mawk": "mawk",
+            "awk_posix": "awk"
+        }
+        awk_command = awk_command_map.get(profile.id, "gawk")
+        self.awk_executor = AwkExecutor(awk_command)
+        
+        # Check if AWK is available
+        if not self.awk_executor.is_available():
+            groups_widget = self.query_one("#groups", Static)
+            groups_widget.update(
+                f"[red]Error: {awk_command} not found.[/red]\n"
+                f"Please install AWK to use this mode.\n\n"
+                f"On Ubuntu/Debian: sudo apt install {awk_command}\n"
+                f"On macOS: AWK is pre-installed"
+            )
+            return
+        
+        # Update input placeholder
+        input_widget = self.query_one("#pattern_input", Input)
+        input_widget.placeholder = "Enter AWK program (e.g., '{print $1}')"
+        
+        # Update panel header
+        header_widget = self.query_one("#panel-header", Static)
+        header_widget.update("AWK Fields")
+        
+        # Switch to groups view (mode 0) to show fields
+        self.view_mode = 0
+        self.query_one("#groups", Static).display = True
+        self.query_one("#help", Static).display = False
+        self.query_one("#features_widget", FeaturesWidget).display = False
+        
+        # Re-run with current pattern if exists
+        if self.pattern:
+            self.run_worker(self.update_awk(self.pattern), exclusive=True)
+        else:
+            groups_widget = self.query_one("#groups", Static)
+            groups_widget.update(
+                "[cyan]AWK Mode Active[/cyan]\n\n"
+                "Enter an AWK program above.\n\n"
+                "[bold]Examples:[/bold]\n"
+                "  {print $1}           - Print first field\n"
+                "  /pattern/ {print}    - Print lines matching pattern\n"
+                "  {sum += $2} END {print sum}  - Sum second field\n\n"
+                "[dim]Press F1 for AWK help[/dim]"
+            )
+    
+    async def _switch_to_regex_mode(self, profile: RegexProfile) -> None:
+        """Switch the UI back to Regex mode."""
+        self.is_awk_mode = False
+        self.awk_executor = None
+        self.awk_records = []
+        
+        # Update input placeholder
+        input_widget = self.query_one("#pattern_input", Input)
+        input_widget.placeholder = "Enter regex pattern"
+        
+        # Update panel header
+        header_widget = self.query_one("#panel-header", Static)
+        header_widget.update("Pattern Breakdown")
+        
+        # Set profile
+        self.regex_provider.set_profile(profile)
+        
+        # Update FeaturesWidget to match new profile
+        features_widget = self.query_one("#features_widget", FeaturesWidget)
+        features_widget.update_from_profile(profile)
+        
+        # Re-run regex with new profile settings
+        if self.pattern:
+            self.run_worker(self.update_regex(self.pattern), exclusive=True)
+        else:
+            groups_widget = self.query_one("#groups", Static)
+            groups_widget.update("")
+    
+    async def update_awk(self, awk_program: str):
+        """Execute AWK program and update UI."""
+        if not self.awk_executor:
+            return
+        
+        # Run in thread pool to avoid blocking
+        output, error = await asyncio.to_thread(
+            self.awk_executor.execute,
+            awk_program,
+            self.input_content
+        )
+        
+        output_widget = self.query_one("#output", Static)
+        groups_widget = self.query_one("#groups", Static)
+        
+        if error:
+            # Show error
+            groups_widget.update(f"[red]AWK Error:[/red]\n{error}")
+            output_widget.update(self._add_line_numbers(self.input_content))
+            return
+        
+        # Show AWK output
+        numbered_output = self._add_line_numbers(output if output else "(no output)")
+        output_widget.update(numbered_output)
+        
+        # Get field breakdown
+        records, field_error = await asyncio.to_thread(
+            self.awk_executor.get_field_breakdown,
+            self.input_content
+        )
+        
+        if field_error or not records:
+            groups_widget.update("[dim]No field information available[/dim]")
+        else:
+            # Format field information
+            self.awk_records = records
+            field_lines = []
+            field_lines.append(f"[bold cyan]Total Records: {len(records)}[/bold cyan]\n")
+            
+            # Show first few records
+            for i, record in enumerate(records[:5]):
+                field_lines.append(f"[bold]Record {record.number}:[/bold]")
+                field_lines.append(f"  [dim]$0:[/dim] {record.full_record}")
+                field_lines.append(f"  [dim]NF:[/dim] {record.num_fields}")
+                for field in record.fields[:10]:  # Limit fields shown
+                    field_lines.append(f"  [cyan]${field.index}:[/cyan] {field.value}")
+                field_lines.append("")
+            
+            if len(records) > 5:
+                field_lines.append(f"[dim]... and {len(records) - 5} more records[/dim]")
+            
+            groups_widget.update("\n".join(field_lines))
+    
+    def get_awk_help_content(self) -> str:
+        """Generate AWK-specific help content."""
+        lines = []
+        lines.append("[bold cyan]AWK Quick Reference[/bold cyan]\n")
+        
+        lines.append("[bold]Structure:[/bold]")
+        lines.append("[cyan]pattern { action }[/cyan]")
+        lines.append("Execute action for lines matching pattern\n")
+        
+        lines.append("[bold]Patterns:[/bold]")
+        lines.append("[cyan]/regex/[/cyan]      Lines matching regex")
+        lines.append("[cyan]$1 == \"value\"[/cyan] Field comparison")
+        lines.append("[cyan]NR > 5[/cyan]       Line number condition")
+        lines.append("[cyan]BEGIN[/cyan]        Before processing")
+        lines.append("[cyan]END[/cyan]          After processing\n")
+        
+        lines.append("[bold]Actions:[/bold]")
+        lines.append("[cyan]print[/cyan]        Print entire line ($0)")
+        lines.append("[cyan]print $1[/cyan]    Print field 1")
+        lines.append("[cyan]print $1, $3[/cyan] Print fields 1 and 3")
+        lines.append("[cyan]sum += $2[/cyan]   Accumulate field 2\n")
+        
+        lines.append("[bold]Built-in Variables:[/bold]")
+        lines.append("[cyan]$0[/cyan]           Entire record")
+        lines.append("[cyan]$1, $2, ...[/cyan] Fields (columns)")
+        lines.append("[cyan]NF[/cyan]           Number of fields")
+        lines.append("[cyan]NR[/cyan]           Record number (line number)")
+        lines.append("[cyan]FS[/cyan]           Field separator (default: space)")
+        lines.append("[cyan]OFS[/cyan]          Output field separator\n")
+        
+        lines.append("[bold]Examples:[/bold]")
+        lines.append("[cyan]{print $1}[/cyan]")
+        lines.append("  Print first field of each line")
+        lines.append("[cyan]/error/ {print NR, $0}[/cyan]")
+        lines.append("  Print line number and line for lines containing 'error'")
+        lines.append("[cyan]{sum += $3} END {print sum}[/cyan]")
+        lines.append("  Sum third field and print total\n")
+        
+        lines.append("[dim]Press F1 to return to fields view[/dim]")
         
         return "\n".join(lines)
 
-    def action_show_features(self) -> None:
-        """Show the features modal."""
-        if not self.regex_provider.current_profile:
-            return
-            
-        current_features = self.regex_provider.current_profile.enabled_features
-        
-        def handle_features(features: Optional[Set[str]]) -> None:
-            if features is not None:
-                # Create a new custom profile with these features
-                # For now, we just update the current profile in memory
-                # In Phase 4 we will save this properly
-                
-                # If current profile is a default one, create a copy
-                current = self.regex_provider.current_profile
-                if current:
-                    # Create custom profile
-                    new_profile = RegexProfile(
-                        id="custom",
-                        name="Custom",
-                        description="Custom feature set",
-                        enabled_features=features,
-                        use_regex_module=True # Default to regex module for custom profiles to allow all features
-                    )
-                    
-                    # Register it temporarily
-                    self.profile_manager.profiles["custom"] = new_profile
-                    
-                    # Update selector
-                    select = self.query_one("#profile_select", Select)
-                    # Update options to include custom if not present
-                    profiles = [(p.name, p.id) for p in self.profile_manager.list_profiles()]
-                    select.set_options(profiles)
-                    select.value = "custom"
-                    
-        self.push_screen(FeaturesModal(current_features), handle_features)
+
 
     def action_quit(self) -> None:
         """Quit the application."""
@@ -336,20 +523,22 @@ class RexiApp(App[ReturnType]):
         max_line_num = len(lines)
         gutter_width = len(str(max_line_num)) + 1  # +1 for space
         
-        # 3. Calculate available width for text
-        # Subtract gutter and scrollbar (approx 2 chars)
-        available_width = max(10, container_width - gutter_width - 2)
-        
         # 4. Calculate visual lines before the match
         match_logical_line_idx = self.input_content[:position].count('\n')
         visual_lines_before = 0
+        
+        import math
         
         for i in range(match_logical_line_idx):
             line_len = len(lines[i])
             # Calculate how many visual lines this logical line takes
             # max(1, ...) ensures empty lines take 1 visual line
-            import math
-            visual_lines = max(1, math.ceil(line_len / available_width))
+            
+            total_chars = line_len + gutter_width
+            # Subtract 2 for scrollbar/padding roughly
+            container_inner_width = max(1, container_width - 2)
+            
+            visual_lines = max(1, math.ceil(total_chars / container_inner_width))
             visual_lines_before += visual_lines
             
         # Add offset within the current line if needed (for very long lines)
@@ -378,16 +567,39 @@ class RexiApp(App[ReturnType]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press events."""
-        if event.button.id == "help":
-            self.action_toggle_help()
-        elif event.button.id == "features":
-            self.action_show_features()
+        if event.button.id == "toggle_view":
+            self.action_toggle_view()
 
+    @on(Input.Changed)
     @on(Input.Changed)
     async def on_input_changed(self, message: Input.Changed) -> None:
         """Handle input field changes."""
-        self.pattern = message.value
-        self.run_worker(self.update_regex(message.value), exclusive=True)
+        # Sanitize input to remove terminal escape sequences (e.g., mouse events)
+        import re
+        
+        clean_value = message.value
+        
+        # 1. Remove real ANSI escape sequences (CSI codes)
+        # Matches ESC [ or \x9b followed by params and a final letter
+        clean_value = re.sub(r'(\x1b\[|\x9b)[0-9;<>?]*[a-zA-Z]', '', clean_value)
+        
+        # 2. Remove literal representations of SGR mouse codes
+        # Matches ^[[<digits;digits;digitsM or m
+        clean_value = re.sub(r'\^\[\[<[\d;]+[mM]', '', clean_value)
+        
+        if clean_value != message.value:
+            # If we stripped something, update the input widget directly
+            message.input.value = clean_value
+            # The update will trigger another Changed event, so we return early
+            return
+
+        self.pattern = clean_value
+        
+        # Route to AWK or Regex based on mode
+        if self.is_awk_mode:
+            self.run_worker(self.update_awk(clean_value), exclusive=True)
+        else:
+            self.run_worker(self.update_regex(clean_value), exclusive=True)
     
     @on(Input.Submitted)
     async def on_input_submitted(self, message: Input.Submitted) -> None:
@@ -401,10 +613,13 @@ class RexiApp(App[ReturnType]):
             profile_id = cast(str, message.value)
             profile = self.profile_manager.get_profile(profile_id)
             if profile:
-                self.regex_provider.set_profile(profile)
-                # Re-run regex with new profile settings
-                if self.pattern:
-                    self.run_worker(self.update_regex(self.pattern), exclusive=True)
+                # Check if this is an AWK profile
+                if profile.profile_type == "awk":
+                    # Switch to AWK mode
+                    await self._switch_to_awk_mode(profile)
+                else:
+                    # Switch to Regex mode
+                    await self._switch_to_regex_mode(profile)
 
     def _get_regex_result(self, str_pattern: str):
         """Run regex matching and formatting synchronously."""
@@ -497,8 +712,8 @@ class RexiApp(App[ReturnType]):
             self.current_match_index = 0 if match_positions else -1
             self._last_matches = groups if groups else []
             
-            # Update widgets (only update groups if not showing help)
-            if not self.showing_help:
+            # Update widgets (only update groups if in groups view)
+            if self.view_mode == 0:
                 groups_widget.update(groups_result if groups_result else "[dim]No capture groups in pattern[/dim]")
                 groups_widget.refresh()  # Force redraw
             
@@ -511,7 +726,7 @@ class RexiApp(App[ReturnType]):
                 self._scroll_to_match(0)
         else:
             # No matches found
-            if not self.showing_help:
+            if self.view_mode == 0:
                 groups_widget.update("[dim]No matches found[/dim]")
             numbered_content = self._add_line_numbers(self.input_content)
             output_widget.update(numbered_content)
