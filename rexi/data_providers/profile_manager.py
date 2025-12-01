@@ -12,6 +12,7 @@ class RegexProfile:
     enabled_features: Set[str]
     use_regex_module: bool
     id: str
+    profile_type: str = "regex"  # "regex" or "awk"
 
 class ProfileManager:
     def __init__(self):
@@ -37,11 +38,12 @@ class ProfileManager:
                         description=profile_data["description"],
                         enabled_features=set(profile_data["enabled_features"]),
                         use_regex_module=profile_data["use_regex_module"],
-                        id=profile_id
+                        id=profile_id,
+                        profile_type=profile_data.get("type", "regex")
                     )
         else:
-            # Fallback if file not found (shouldn't happen in dev)
-            print(f"Warning: Default profiles not found at {config_path}")
+            # Profiles not found - will use empty dict
+            pass
 
     def get_profile(self, profile_id: str) -> Optional[RegexProfile]:
         return self.profiles.get(profile_id)
