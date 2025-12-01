@@ -2,6 +2,7 @@
     "pcre_full": {
         "name": "PCRE (Full)",
         "description": "Full Perl Compatible Regular Expressions (using 'regex' module)",
+        "type": "regex",
         "enabled_features": [
             "anchors",
             "quantifiers",
@@ -27,6 +28,7 @@
     "python_re": {
         "name": "Python (re)",
         "description": "Standard Python 're' module compatibility",
+        "type": "regex",
         "enabled_features": [
             "anchors",
             "quantifiers",
@@ -45,6 +47,7 @@
     "grep_basic": {
         "name": "Grep (Basic)",
         "description": "Restricted feature set simulating basic grep (no lookarounds, etc.)",
+        "type": "regex",
         "enabled_features": [
             "anchors",
             "quantifiers",
@@ -53,6 +56,42 @@
             "alternation",
             "escapes"
         ],
+        "use_regex_module": false
+    },
+    "sed_basic": {
+        "name": "Sed (Basic)",
+        "description": "Basic sed regular expressions (similar to grep)",
+        "type": "regex",
+        "enabled_features": [
+            "anchors",
+            "quantifiers",
+            "groups",
+            "classes",
+            "alternation",
+            "escapes",
+            "backreferences"
+        ],
+        "use_regex_module": false
+    },
+    "awk_gawk": {
+        "name": "AWK - GNU (gawk)",
+        "description": "GNU AWK with extensions",
+        "type": "awk",
+        "enabled_features": [],
+        "use_regex_module": false
+    },
+    "awk_mawk": {
+        "name": "AWK - Mike's (mawk)",
+        "description": "Fast POSIX-compliant AWK",
+        "type": "awk",
+        "enabled_features": [],
+        "use_regex_module": false
+    },
+    "awk_posix": {
+        "name": "AWK - POSIX",
+        "description": "Standard POSIX AWK",
+        "type": "awk",
+        "enabled_features": [],
         "use_regex_module": false
     }
 }
