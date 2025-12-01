@@ -78,7 +78,7 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             # self.assertFalse(features.display)
             
             # Toggle to Help (mode 1)
-            await pilot.press("f1")
+            await pilot.press("f2")
             await pilot.pause(0.2)
             self.assertEqual(app.view_mode, 1)
             self.assertFalse(groups.display)
@@ -86,7 +86,7 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(features.display)
             
             # Toggle to Features (mode 2)
-            await pilot.press("f1")
+            await pilot.press("f2")
             await pilot.pause(0.2)
             self.assertEqual(app.view_mode, 2)
             self.assertFalse(groups.display)
@@ -94,7 +94,7 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(features.display)
             
             # Toggle back to Groups (mode 0)
-            await pilot.press("f1")
+            await pilot.press("f2")
             await pilot.pause(0.2)
             self.assertEqual(app.view_mode, 0)
             self.assertTrue(groups.display)
@@ -108,8 +108,8 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             # Navigate to Features view
-            await pilot.press("f1")  # Help
-            await pilot.press("f1")  # Features
+            await pilot.press("f2")  # Help
+            await pilot.press("f2")  # Features
             await pilot.pause(0.2)
             
             # Get initial state
