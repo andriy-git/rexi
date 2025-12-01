@@ -1,51 +1,51 @@
 {
     "pcre_full": {
-        "name": "PCRE (Full)",
+        "name": "RE - PCRE (Full)",
         "description": "Full Perl Compatible Regular Expressions (using 'regex' module)",
         "type": "regex",
         "enabled_features": [
             "anchors",
             "quantifiers",
             "groups",
+            "lookahead",
+            "lookbehind",
+            "variable_lookbehind",
+            "named_groups",
+            "non_capturing",
+            "atomic",
+            "possessive",
+            "backreferences",
+            "branch_reset",
             "classes",
             "alternation",
             "escapes",
-            "named_groups",
-            "non_capturing",
-            "lookahead",
-            "lookbehind",
-            "backreferences",
-            "atomic",
-            "possessive",
-            "recursion",
-            "branch_reset",
-            "variable_lookbehind",
             "unicode_properties",
+            "recursion",
             "fuzzy"
         ],
         "use_regex_module": true
     },
     "python_re": {
-        "name": "Python (re)",
+        "name": "RE - Python (re)",
         "description": "Standard Python 're' module compatibility",
         "type": "regex",
         "enabled_features": [
             "anchors",
             "quantifiers",
             "groups",
-            "classes",
-            "alternation",
-            "escapes",
-            "named_groups",
-            "non_capturing",
             "lookahead",
             "lookbehind",
-            "backreferences"
+            "named_groups",
+            "non_capturing",
+            "backreferences",
+            "classes",
+            "alternation",
+            "escapes"
         ],
         "use_regex_module": false
     },
     "grep_basic": {
-        "name": "Grep (Basic)",
+        "name": "RE - Grep (Basic)",
         "description": "Restricted feature set simulating basic grep (no lookarounds, etc.)",
         "type": "regex",
         "enabled_features": [
@@ -59,7 +59,7 @@
         "use_regex_module": false
     },
     "sed_basic": {
-        "name": "Sed (Basic)",
+        "name": "RE - Sed (Basic)",
         "description": "Basic sed regular expressions (similar to grep)",
         "type": "regex",
         "enabled_features": [
