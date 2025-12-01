@@ -25,7 +25,7 @@ class RexiApp(App[ReturnType]):
     CSS_PATH = "../../rexi.tcss"
     
     BINDINGS = [
-        ("f1", "toggle_view", "Toggle View"),
+        ("f2", "toggle_view", "Toggle View"),
         ("n", "next_match", "Next Match"),
         ("N", "prev_match", "Prev Match"),
         ("i", "focus_input", "Input"),
@@ -87,7 +87,7 @@ class RexiApp(App[ReturnType]):
             with Vertical(id="input-controls"):
                 yield Input(value=self.pattern, placeholder="Enter regex pattern", id="pattern_input")
                 with Horizontal(id="button-row"):
-                    yield Button("Toggle View (F1)", id="toggle_view", variant="primary")
+                    yield Button("Toggle View (F2)", id="toggle_view", variant="primary")
             
             # Right: Profile selector
             profiles = [(p.name, p.id) for p in self.profile_manager.list_profiles()]
@@ -270,7 +270,7 @@ class RexiApp(App[ReturnType]):
             lines.append("[bold]Backreferences:[/bold]")
             lines.append("[cyan]\\1[/cyan]        Reference to group 1\n")
         
-        lines.append("[dim]Press F1 to toggle view[/dim]")
+        lines.append("[dim]Press F2 to toggle view[/dim]")
         
         return "\n".join(lines)
     
@@ -324,7 +324,7 @@ class RexiApp(App[ReturnType]):
                 "  {print $1}           - Print first field\n"
                 "  /pattern/ {print}    - Print lines matching pattern\n"
                 "  {sum += $2} END {print sum}  - Sum second field\n\n"
-                "[dim]Press F1 for AWK help[/dim]"
+                "[dim]Press F2 for AWK help[/dim]"
             )
     
     async def _switch_to_regex_mode(self, profile: RegexProfile) -> None:
@@ -360,10 +360,23 @@ class RexiApp(App[ReturnType]):
         if not self.awk_executor:
             return
         
+        # Strip 'awk' command prefix if present, as users might type it out of habit
+        # e.g. "awk '{print $1}'" -> "'{print $1}'"
+        # If we don't do this, awk interprets "awk" as a pattern (variable) which is false, so no output.
+        import re
+        clean_program = re.sub(r'^(?:g?awk|mawk)\s+', '', awk_program.strip())
+        
+        # Strip surrounding quotes if present (simulating shell behavior)
+        # e.g. "'{print $1}'" -> "{print $1}"
+        if len(clean_program) >= 2:
+            if (clean_program.startswith("'") and clean_program.endswith("'")) or \
+               (clean_program.startswith('"') and clean_program.endswith('"')):
+                clean_program = clean_program[1:-1]
+        
         # Run in thread pool to avoid blocking
         output, error = await asyncio.to_thread(
             self.awk_executor.execute,
-            awk_program,
+            clean_program,
             self.input_content
         )
         
@@ -372,7 +385,8 @@ class RexiApp(App[ReturnType]):
         
         if error:
             # Show error
-            groups_widget.update(f"[red]AWK Error:[/red]\n{error}")
+            from rich.markup import escape
+            groups_widget.update(f"[red]AWK Error:[/red]\n{escape(error)}")
             output_widget.update(self._add_line_numbers(self.input_content))
             return
         
@@ -446,7 +460,7 @@ class RexiApp(App[ReturnType]):
         lines.append("[cyan]{sum += $3} END {print sum}[/cyan]")
         lines.append("  Sum third field and print total\n")
         
-        lines.append("[dim]Press F1 to return to fields view[/dim]")
+        lines.append("[dim]Press F2 to return to fields view[/dim]")
         
         return "\n".join(lines)
 
