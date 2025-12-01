@@ -1,25 +1,20 @@
 """Formatter for regex match output."""
 
 from rich.text import Text
-from rich.table import Table
-from rich import box
 from ..data_providers.regex_provider import GroupMatch
 
 
 class RegexFormatter:
     """Formats regex match results for display."""
     
-    # Colors for capture groups (cycling) - using backgrounds for better visibility
+    # Colors for highlighting
+    MATCH_STYLE = "bold #ffffff on #005f87"  # White on dark blue for main match
     GROUP_STYLES = [
-        "bold white on dark_cyan",
-        "bold white on dark_green",
-        "bold black on yellow",
-        "bold white on dark_magenta",
-        "bold white on dark_blue",
-        "bold black on bright_cyan",
-        "bold black on bright_green",
-        "bold black on bright_yellow",
-        "bold black on bright_magenta",
+        "bold #00ff00 on #005f87",  # Bright Green on dark blue
+        "bold #ffff00 on #005f87",  # Bright Yellow on dark blue
+        "bold #ff00ff on #005f87",  # Magenta on dark blue
+        "bold #ff4444 on #005f87",  # Red on dark blue
+        "bold #00ffff on #005f87",  # Cyan on dark blue
     ]
     
     def __init__(self, input_content: str):
@@ -54,9 +49,10 @@ class RegexFormatter:
                 if group.group_index == 0:
                     if match_idx == current_match_index:
                         # Current match gets a bright, inverted highlight
-                        text.stylize("bold reverse white", group.span[0], group.span[1])
+                        text.stylize("bold black on #4fc3f7", group.span[0], group.span[1])
                     else:
-                        text.stylize("bold white on #444444", group.span[0], group.span[1])
+                        # Unfocused matches get a visible but subtle highlight
+                        text.stylize("bold #4fc3f7 on #2d3748", group.span[0], group.span[1])
                 # Other groups get color from palette with backgrounds
                 else:
                     style = self.GROUP_STYLES[(group.group_index - 1) % len(self.GROUP_STYLES)]
@@ -83,39 +79,80 @@ class RegexFormatter:
         return positions
     
     @staticmethod
-    def create_groups_output(matches: list[list[GroupMatch]]) -> Table:
-        """Create formatted output for matched groups.
+    def create_groups_output(matches: list[list[GroupMatch]]) -> str:
+        """Create educational output explaining matches and capture groups.
         
         Args:
             matches: List of matches, where each match is a list of GroupMatch objects
             
         Returns:
-            Rich Table showing all groups
+            Formatted string explaining the pattern and showing captured groups
         """
-        table = Table(
-            box=box.ROUNDED, 
-            expand=True, 
-            show_header=True,
-            show_lines=False,
-            padding=(0, 1)
-        )
-        table.add_column("Match", style="cyan", no_wrap=True, width=6)
-        table.add_column("Group", style="magenta", no_wrap=True, width=6)
-        table.add_column("Name", style="green", width=12)
-        table.add_column("Value", style="white")
-        table.add_column("Span", style="yellow", justify="right", width=12)
+        lines = []
         
-        for i, match_groups in enumerate(matches, 1):
+        # Count total matches and groups
+        total_matches = len(matches)
+        total_groups = sum(len([g for g in match if g.group_index > 0]) for match in matches)
+        
+        if total_groups == 0:
+            if total_matches > 0:
+                return f"[bold]Found {total_matches} match(es)[/bold]\n\n[dim]No capture groups in pattern.[/dim]\n[yellow]Tip:[/yellow] Add parentheses [cyan]()[/cyan] around parts of your pattern to capture groups.\n[dim]Example: [cyan]\\d+[/cyan] → [cyan](\\d+)[/cyan][/dim]"
+            else:
+                return "[dim]No matches found[/dim]"
+        
+        # Summary header
+        lines.append(f"[bold cyan]Found {total_matches} match(es) with {total_groups} captured group(s)[/bold cyan]\n")
+        
+        # Explain what capture groups are
+        lines.append("[bold]What are capture groups?[/bold]")
+        lines.append("[dim]Parts of your pattern in [cyan]()[/cyan] are 'captured' so you can:")
+        lines.append("  • Extract specific parts of matches")
+        lines.append("  • Reference them later with [cyan]\\1[/cyan], [cyan]\\2[/cyan], etc.")
+        lines.append("  • Use them in search & replace operations[/dim]\n")
+        
+        # Show captured values grouped by group number
+        groups_by_index = {}
+        for match_groups in matches:
             for group in match_groups:
-                if group.group_index == 0:
-                    continue
-                    
-                table.add_row(
-                    str(i),
-                    str(group.group_index),
-                    group.name or "-",
-                    group.value,
-                    f"{group.span[0]}-{group.span[1]}"
-                )
+                if group.group_index > 0:
+                    if group.group_index not in groups_by_index:
+                        groups_by_index[group.group_index] = []
+                    groups_by_index[group.group_index].append(group.value)
+        
+        # Show each capture group's values
+        for group_idx in sorted(groups_by_index.keys()):
+            values = groups_by_index[group_idx]
+            unique_count = len(set(values))
+            
+            # Show group header
+            group_name = f"Group {group_idx}"
+            
+            # Find name from any match that has this group
+            name = None
+            for match_groups in matches:
+                for g in match_groups:
+                    if g.group_index == group_idx and g.name:
+                        name = g.name
+                        break
+                if name:
+                    break
+            
+            if name:
+                group_name += f" [cyan]({name})[/cyan]"
+            
+            lines.append(f"[bold magenta]{group_name}:[/bold magenta] {len(values)} captured")
+            
+            # Show first few unique examples
+            unique_values = list(dict.fromkeys(values[:20]))  # Keep order, remove dupes
+            examples = unique_values[:5]
+            
+            if examples:
+                examples_str = ", ".join([f"[cyan]{repr(v[:20])}[/cyan]" if len(v) <= 20 else f"[cyan]{repr(v[:17])}...[/cyan]" for v in examples])
+                lines.append(f"  Examples: {examples_str}")
                 
-        return table
+                if len(unique_values) > 5:
+                    lines.append(f"  [dim]...and {len(unique_values) - 5} more unique value(s)[/dim]")
+            
+            lines.append("")  # Blank line between groups
+        
+        return "\n".join(lines)
