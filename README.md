@@ -12,66 +12,84 @@
 
 ---
 
-`rexi` is a simple yet powerful CLI tool designed for developers, data scientists, and anyone interested in working with regular expressions directly from the terminal.
-Built with Python and leveraging the `textual` library, `rexi` offers a user-friendly terminal UI to interactively work with regular expressions.
-![Demo](https://github.com/royreznik/rexi/blob/master/docs/demo.gif)
+`rexi` is a modern, interactive Terminal User Interface (TUI) for crafting and testing Regular Expressions and AWK scripts. Built with [Textual](https://textual.textualize.io/), it provides real-time feedback, detailed pattern breakdowns, and support for multiple regex engines.
 
-## Features
+## Key Features
 
-- **Interactive UI:** Built on top of the `textual` library, providing a clean and intuitive interface to work with.
-- **Regex Evaluation:** Supports evaluating regular expressions using either `match` or `finditer` modes, allowing users to select the most suitable method for their needs.
-- **Real-time Feedback:** Instantly see how your regular expression patterns match or find iterations over your input, enhancing learning and debugging experiences.
-- **Easy to Use:** Get started quickly with a simple command. `rexi` reads input directly from stdin, streamlining the process of testing regular expressions.
+*   **Real-time Highlighting**: See matches instantly as you type.
+*   **Multi-Engine Support**: Switch between **Python (re)**, **PCRE**, **Grep**, **Sed**, and **AWK**.
+*   **Pattern Breakdown**: Understand complex regex with a detailed breakdown of capture groups and matches.
+*   **AWK Support**: Write and test AWK scripts interactively with field breakdowns (`$1`, `$2`, etc.).
+*   **Educational**: Visual error pointers and context-aware help make learning regex easier.
+*   **Flexible Input**: Pipe data from stdin or load from files.
 
+## Installation
 
-# Installation
+### From PyPI
 ```bash
 pip install rexi
 ```
 
-Or install from source:
-```bash
-git clone https://github.com/royreznik/rexi.git
-cd rexi
-pip install .
-```
-
-Or use the installation script to set up a virtual environment and make the `rexi` command available system-wide:
+### From Source
 ```bash
 git clone https://github.com/royreznik/rexi.git
 cd rexi
 ./install.sh
 ```
 
-# Usage
+## Usage
+
+### Piping Input (Recommended)
+Pipe output from any command directly into `rexi`:
 ```bash
 cat /etc/hosts | rexi
+ls -la | rexi
+curl -s https://example.com | rexi
 ```
-Once the UI is open, you can:
 
-1. **Write a Regex Pattern:** Enter your regex pattern in the designated input area.
-2. **Choose a Mode:** Select either `match` or `finditer` to apply your regex pattern.
-3. **View Results:** See the marked output based on your regex pattern and selected mode in real-time.
+### File Input
+Load a file directly:
+```bash
+rexi -i path/to/file.txt
+```
 
-# Testing
-To run the project tests:
+### Initial Pattern
+Start with a pattern pre-loaded:
+```bash
+rexi -p "^\d+" -i data.txt
+```
+
+## Interface & Controls
+
+| Key | Action |
+| :--- | :--- |
+| `F2` | Toggle Views (Groups / Help / Features) |
+| `n` / `N` | Jump to Next / Previous Match |
+| `j` / `k` | Scroll Output |
+| `Enter` | Focus Results |
+| `i` | Focus Input |
+| `Ctrl+c` | Quit |
+
+## Profiles
+
+Rexi supports multiple regex flavors and tools:
+
+*   **RE - Python (re)**: Standard Python regular expressions.
+*   **RE - PCRE**: Perl Compatible Regular Expressions (supports atomic groups, recursion, etc.).
+*   **RE - Grep/Sed**: Simulates basic POSIX regex behavior.
+*   **AWK**: Full AWK script execution (supports `gawk`, `mawk`, etc.).
+
+## Testing
+
+Run the test suite:
 ```bash
 ./run_tests.sh
 ```
 
-Or to run specific tests:
-```bash
-./run_tests.sh tests.test_logic
-./run_tests.sh tests.test_logic.TestLogic.test_group_match_equals
-```
-
 ## Contributing
 
-We welcome contributions from the community! Whether it's adding new features, fixing bugs, or improving documentation, your help is appreciated. Please see our contribution guidelines for more information on how to contribute to `rexi`.
-
-`rexi` is here to make working with regular expressions in the terminal an easy and interactive experience. Try it out and see how it can streamline your regex testing and learning process!
-
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-This project is licensed under the terms of the MIT license.
 
+MIT License
