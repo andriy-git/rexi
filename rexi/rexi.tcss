@@ -135,32 +135,23 @@ Button.error {
 }
 
 /* Modals */
-FeaturesModal {
-    align: center middle;
-    background: rgba(0,0,0,0.7);
-}
 
-#dialog {
-    grid-size: 2;
-    grid-gutter: 1;
-    grid-rows: auto;
-    padding: 1;
-    width: 80;
-    height: 80%;
-    border: round $accent;
-    background: $surface;
+FeaturesWidget {
+    height: 100%;
+    width: 100%;
+    display: none;
     overflow-y: auto;
-    scrollbar-gutter: stable;
 }
 
-.category-box {
+.feature-category-box {
     height: auto;
     border: solid $secondary;
-    padding: 1;
+    padding: 0 1;
+    margin-bottom: 1;
     background: $background;
 }
 
-.category-header {
+.feature-category-header {
     text-align: center;
     text-style: bold;
     background: $secondary;
@@ -169,23 +160,20 @@ FeaturesModal {
     margin-bottom: 1;
 }
 
-.category-title {
-    text-align: center;
-    text-style: bold;
-    background: $accent;
-    color: $background;
-    width: 100%;
-    padding: 1;
-    column-span: 2;
-}
-
-#buttons {
-    column-span: 2;
+.feature-buttons {
     height: auto;
-    align: center bottom;
-    padding-top: 1;
+    width: 100%;
+    align: center middle;
+    padding: 1 0;
     margin-top: 1;
 }
+
+.feature-buttons Button {
+    margin: 0 1;
+    min-width: 15;
+}
+
+
 
 Checkbox {
     color: $text;
