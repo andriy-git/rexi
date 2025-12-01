@@ -1,5 +1,6 @@
 """CLI parser for Rexi."""
 
+import os
 import sys
 from typing import Optional
 
@@ -46,16 +47,16 @@ def rexi_cli(
             raise typer.Exit(code=1)
     elif not is_stdin_a_tty():
         # Read from stdin
-        # We need to open stdin in a way that doesn't conflict with Textual
-        # Textual needs stdin to be a TTY, so we read content then reopen stdin as TTY if possible
-        # But actually, if we pipe to rexi, stdin is the pipe.
-        # Textual app needs to be run with a driver that supports this or we need to handle it.
-        # Standard way: read stdin, then open /dev/tty for TUI.
         input_content = sys.stdin.read()
         
         # Reopen stdin as tty for Textual
         if sys.platform != "win32":
-            sys.stdin = open("/dev/tty", "r")
+            # Open the TTY
+            tty = open("/dev/tty", "r")
+            # Duplicate the TTY file descriptor to standard input (fd 0)
+            os.dup2(tty.fileno(), 0)
+            # Update sys.stdin to point to the new file descriptor
+            sys.stdin = os.fdopen(0, "r")
     else:
         # No input provided
         print("Error: No input provided. Pipe text to rexi or use --input file.")
