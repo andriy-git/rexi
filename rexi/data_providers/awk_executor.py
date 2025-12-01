@@ -56,9 +56,7 @@ class AwkExecutor:
                 input=input_text,
                 capture_output=True,
                 text=True,
-                timeout=timeout,
-                stderr=subprocess.PIPE,  # Ensure stderr is captured
-                stdout=subprocess.PIPE   # Ensure stdout is captured
+                timeout=timeout
             )
             
             if result.returncode != 0:
