@@ -42,51 +42,7 @@ FEATURE_CATEGORIES = {
 class FeaturesModal(ModalScreen[Set[str]]):
     """Modal screen for toggling regex features."""
 
-    CSS = """
-    FeaturesModal {
-        align: center middle;
-    }
-
-    #dialog {
-        width: 80;
-        height: 80%;
-        border: thick $accent;
-        background: $surface;
-    }
-    
-    #dialog-content {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: auto;
-        padding: 0 1;
-    }
-
-    .category-box {
-        height: auto;
-        border: solid $primary;
-        padding: 1;
-    }
-
-    .category-title {
-        text-align: center;
-        text-style: bold;
-        background: $primary;
-        color: $text;
-        width: 100%;
-        column-span: 2;
-    }
-
-    #buttons {
-        column-span: 2;
-        height: auto;
-        align: center bottom;
-        padding-top: 1;
-    }
-
-    Button {
-        margin: 0 1;
-    }
-    """
+    CSS_PATH = "../../../rexi.tcss"
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
