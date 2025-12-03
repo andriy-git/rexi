@@ -12,16 +12,18 @@
 
 ---
 
-`rexi` is a modern, interactive Terminal User Interface (TUI) for crafting and testing Regular Expressions and AWK scripts. Built with [Textual](https://textual.textualize.io/), it provides real-time feedback, detailed pattern breakdowns, and support for multiple regex engines.
+`rexi` is a modern, interactive Terminal User Interface (TUI) for crafting and testing Regular Expressions, AWK scripts, and JQ filters. Built with [Textual](https://textual.textualize.io/), it provides real-time feedback, detailed pattern breakdowns, and support for multiple regex engines.
 
 ## Key Features
 
 *   **Real-time Highlighting**: See matches instantly as you type.
-*   **Multi-Engine Support**: Switch between **Python (re)**, **PCRE**, **Grep**, **Sed**, and **AWK**.
+*   **Multi-Engine Support**: Switch between **Python (re)**, **PCRE**, **Grep**, **Sed**, **AWK**, and **JQ**.
 *   **Pattern Breakdown**: Understand complex regex with a detailed breakdown of capture groups and matches.
 *   **AWK Support**: Write and test AWK scripts interactively with field breakdowns (`$1`, `$2`, etc.).
+*   **JQ Support**: Filter and transform JSON data with `jq` filters and see results in real-time.
 *   **Educational**: Visual error pointers and context-aware help make learning regex easier.
 *   **Flexible Input**: Pipe data from stdin or load from files.
+*   **Copy to Clipboard**: Easily copy patterns with a button or keyboard shortcut.
 
 ## Installation
 
@@ -37,6 +39,25 @@ cd rexi
 ./install.sh
 ```
 
+### System Dependencies
+
+For AWK support, install one of:
+```bash
+# Ubuntu/Debian
+sudo apt install gawk  # or mawk
+
+# macOS (AWK pre-installed)
+```
+
+For JQ support:
+```bash
+# Ubuntu/Debian
+sudo apt install jq
+
+# macOS
+brew install jq
+```
+
 ## Usage
 
 ### Piping Input (Recommended)
@@ -45,30 +66,33 @@ Pipe output from any command directly into `rexi`:
 cat /etc/hosts | rexi
 ls -la | rexi
 curl -s https://example.com | rexi
+cat data.json | rexi  # For JQ mode
 ```
 
 ### File Input
 Load a file directly:
 ```bash
 rexi -i path/to/file.txt
+rexi -i data.json  # Supports JSON for JQ
 ```
 
 ### Initial Pattern
 Start with a pattern pre-loaded:
 ```bash
-rexi -p "^\d+" -i data.txt
+rexi -p "^\\d+" -i data.txt
 ```
 
 ## Interface & Controls
 
 | Key | Action |
 | :--- | :--- |
-| `F2` | Toggle Views (Groups / Help / Features) |
+| `F2` | Toggle Views (Groups / Help / Features / Hidden) |
 | `n` / `N` | Jump to Next / Previous Match |
 | `j` / `k` | Scroll Output |
 | `Enter` | Focus Results |
 | `i` | Focus Input |
-| `Ctrl+c` | Quit |
+| `Ctrl+Shift+C` | Copy Pattern |
+| `Escape` | Quit |
 
 ## Profiles
 
@@ -78,6 +102,7 @@ Rexi supports multiple regex flavors and tools:
 *   **RE - PCRE**: Perl Compatible Regular Expressions (supports atomic groups, recursion, etc.).
 *   **RE - Grep/Sed**: Simulates basic POSIX regex behavior.
 *   **AWK**: Full AWK script execution (supports `gawk`, `mawk`, etc.).
+*   **JQ**: JSON processor for filtering and transforming JSON data.
 
 ## Testing
 
