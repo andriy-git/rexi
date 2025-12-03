@@ -102,6 +102,11 @@ Button.error {
     border: solid $secondary;
 }
 
+#output-container.full-width {
+    width: 100%;
+    border-right: none;
+}
+
 #output-container:focus {
     border: solid $accent;
 }
