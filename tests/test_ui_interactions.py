@@ -59,7 +59,7 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.current_match_index >= -1)
 
     async def test_view_toggle(self):
-        """Test toggling between Groups, Help, and Features views."""
+        """Test toggling between Groups, Help, Features, and Hidden views."""
         content = "Test content"
         app = RexiApp(content)
 
@@ -70,12 +70,7 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             groups = app.query_one("#groups")
             help_widget = app.query_one("#help")
             features = app.query_one("#features_widget")
-            
-            # Initially all widgets display=True but only groups should be visible
-            # (Textual sets display=True by default, visibility is controlled by CSS/manual toggling)
-            self.assertTrue(groups.display or not groups.display)  # May vary
-            # self.assertFalse(help_widget.display)  # Skip this check as initial state varies
-            # self.assertFalse(features.display)
+            groups_container = app.query_one("#groups-container")
             
             # Toggle to Help (mode 1)
             await pilot.press("f2")
@@ -92,6 +87,12 @@ class TestUIInteractions(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(groups.display)
             self.assertFalse(help_widget.display)
             self.assertTrue(features.display)
+            
+            # Toggle to Hidden (mode 3)
+            await pilot.press("f2")
+            await pilot.pause(0.2)
+            self.assertEqual(app.view_mode, 3)
+            self.assertFalse(groups_container.display)  # Container should be hidden
             
             # Toggle back to Groups (mode 0)
             await pilot.press("f2")
