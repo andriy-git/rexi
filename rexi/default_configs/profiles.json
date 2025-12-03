@@ -93,5 +93,12 @@
         "type": "awk",
         "enabled_features": [],
         "use_regex_module": false
+    },
+    "jq": {
+        "name": "JQ - JSON Processor",
+        "description": "Filter and transform JSON data",
+        "type": "jq",
+        "enabled_features": [],
+        "use_regex_module": false
     }
 }
