@@ -16,7 +16,7 @@ class TestProfileManager(unittest.TestCase):
         
         pcre = manager.get_profile("pcre_full")
         self.assertIsNotNone(pcre)
-        self.assertEqual(pcre.name, "PCRE (Full)")
+        self.assertEqual(pcre.name, "RE - PCRE (Full)")
         self.assertTrue(pcre.use_regex_module)
 
         grep = manager.get_profile("grep_basic")
