@@ -1,6 +1,7 @@
 """Regex interactive TUI application."""
 
 import asyncio
+import re
 import sys
 from typing import Optional, cast, Set
 
@@ -39,6 +40,7 @@ class RexiApp(App[ReturnType]):
         ("enter", "focus_results", "Results"),
         ("j", "scroll_down", "Scroll Down"),
         ("k", "scroll_up", "Scroll Up"),
+        ("ctrl+C", "copy_pattern", "Copy Pattern"),
         ("escape", "quit", "Quit"),
     ]
 
@@ -74,7 +76,6 @@ class RexiApp(App[ReturnType]):
         self._last_matches: list = []
         
         # Panel state
-        # Panel state
         # 0: Groups (Pattern Breakdown)
         # 1: Help
         # 2: Features
@@ -98,7 +99,7 @@ class RexiApp(App[ReturnType]):
                 yield Input(value=self.pattern, placeholder="Enter regex pattern", id="pattern_input")
                 with Horizontal(id="button-row"):
                     yield Button("Toggle View (F2)", id="toggle_view", variant="primary")
-                    yield Button("Copy Pattern", id="copy_pattern", variant="default")
+                    yield Button("Copy Pattern (Ctrl+Shift+c)", id="copy_pattern", variant="default")
             
             # Right: Profile selector
             profiles = [(p.name, p.id) for p in self.profile_manager.list_profiles()]
@@ -750,11 +751,9 @@ class RexiApp(App[ReturnType]):
             self.notify("pyperclip not installed. Cannot copy.", severity="error")
 
     @on(Input.Changed)
-    @on(Input.Changed)
     async def on_input_changed(self, message: Input.Changed) -> None:
         """Handle input field changes."""
         # Sanitize input to remove terminal escape sequences (e.g., mouse events)
-        import re
         
         clean_value = message.value
         
