@@ -13,9 +13,15 @@ from rich.text import Text
 from ...data_providers.regex_provider import RegexProvider
 from ...data_providers.profile_manager import ProfileManager, RegexProfile
 from ...data_providers.awk_executor import AwkExecutor, AwkRecord
+from ...data_providers.jq_executor import JqExecutor
 from ...presentation.formatter import RegexFormatter
 from ..widgets.help_modal import HelpModal
 from ..widgets.features_widget import FeaturesWidget
+
+try:
+    import pyperclip
+except ImportError:
+    pyperclip = None
 
 
 # noinspection SpellCheckingInspection
@@ -78,6 +84,10 @@ class RexiApp(App[ReturnType]):
         self.is_awk_mode = False
         self.awk_executor: Optional[AwkExecutor] = None
         self.awk_records: list[AwkRecord] = []
+        
+        # JQ mode state
+        self.is_jq_mode = False
+        self.jq_executor: Optional[JqExecutor] = None
 
     def compose(self) -> ComposeResult:
         """Compose the UI layout."""
@@ -88,6 +98,7 @@ class RexiApp(App[ReturnType]):
                 yield Input(value=self.pattern, placeholder="Enter regex pattern", id="pattern_input")
                 with Horizontal(id="button-row"):
                     yield Button("Toggle View (F2)", id="toggle_view", variant="primary")
+                    yield Button("Copy Pattern", id="copy_pattern", variant="default")
             
             # Right: Profile selector
             profiles = [(p.name, p.id) for p in self.profile_manager.list_profiles()]
@@ -136,24 +147,48 @@ class RexiApp(App[ReturnType]):
         return '\n'.join(numbered_lines)
 
     def action_toggle_view(self) -> None:
-        """Toggle between groups, help, and features view."""
-        self.view_mode = (self.view_mode + 1) % 3
+        """Toggle between groups, help, features, and hidden view."""
+        # 0: Groups/Fields/Output
+        # 1: Help
+        # 2: Features (Regex only)
+        # 3: Hidden (Full width output)
+        
+        # Determine next mode
+        next_mode = (self.view_mode + 1)
+        
+        # Skip features view (2) if not in regex mode
+        if next_mode == 2 and (self.is_awk_mode or self.is_jq_mode):
+            next_mode = 3
+            
+        # Wrap around
+        if next_mode > 3:
+            next_mode = 0
+            
+        self.view_mode = next_mode
         
         groups_widget = self.query_one("#groups", Static)
         help_widget = self.query_one("#help", Static)
         features_widget = self.query_one("#features_widget", FeaturesWidget)
         header_widget = self.query_one("#panel-header", Static)
+        output_container = self.query_one("#output-container", ScrollableContainer)
+        groups_container = self.query_one("#groups-container", ScrollableContainer)
         
-        # Hide all first
+        # Reset full width state
+        output_container.remove_class("full-width")
+        groups_container.display = True
+        
+        # Hide all content widgets first
         groups_widget.display = False
         help_widget.display = False
         features_widget.display = False
         
         if self.view_mode == 0:
-            # Groups View (or Fields for AWK)
+            # Groups View (or Fields for AWK/JQ)
             groups_widget.display = True
             if self.is_awk_mode:
                 header_widget.update("AWK Fields")
+            elif self.is_jq_mode:
+                header_widget.update("JQ Output")
             else:
                 header_widget.update("Pattern Breakdown")
         elif self.view_mode == 1:
@@ -162,20 +197,21 @@ class RexiApp(App[ReturnType]):
             if self.is_awk_mode:
                 header_widget.update("AWK Help")
                 help_widget.update(self.get_awk_help_content())
+            elif self.is_jq_mode:
+                header_widget.update("JQ Help")
+                help_widget.update(self.get_jq_help_content())
             else:
                 header_widget.update("Regex Help")
                 help_widget.update(self.get_help_content())
         elif self.view_mode == 2:
             # Features View (only for regex mode)
-            if not self.is_awk_mode:
-                features_widget.display = True
-                header_widget.update("Features Configuration")
-            else:
-                # For AWK mode, cycle back to fields (no features view)
-                self.view_mode = 0
-                groups_widget.display = True
-                header_widget.update("AWK Fields")
-
+            features_widget.display = True
+            header_widget.update("Features Configuration")
+        elif self.view_mode == 3:
+            # Hidden Side Panel
+            groups_container.display = False
+            output_container.add_class("full-width")
+    
     @on(FeaturesWidget.Changed)
     def on_features_widget_changed(self, message: FeaturesWidget.Changed) -> None:
         """Handle feature changes."""
@@ -326,10 +362,59 @@ class RexiApp(App[ReturnType]):
                 "  {sum += $2} END {print sum}  - Sum second field\n\n"
                 "[dim]Press F2 for AWK help[/dim]"
             )
+            
+    async def _switch_to_jq_mode(self, profile: RegexProfile) -> None:
+        """Switch the UI to JQ mode."""
+        self.is_jq_mode = True
+        self.is_awk_mode = False
+        
+        self.jq_executor = JqExecutor()
+        
+        # Check if JQ is available
+        if not self.jq_executor.is_available():
+            groups_widget = self.query_one("#groups", Static)
+            groups_widget.update(
+                f"[red]Error: jq not found.[/red]\n"
+                f"Please install jq to use this mode.\n\n"
+                f"On Ubuntu/Debian: sudo apt install jq\n"
+                f"On macOS: brew install jq"
+            )
+            return
+            
+        # Update input placeholder
+        input_widget = self.query_one("#pattern_input", Input)
+        input_widget.placeholder = "Enter JQ filter (e.g., '.')"
+        
+        # Update panel header
+        header_widget = self.query_one("#panel-header", Static)
+        header_widget.update("JQ Output")
+        
+        # Switch to groups view (mode 0) to show output
+        self.view_mode = 0
+        self.query_one("#groups", Static).display = True
+        self.query_one("#help", Static).display = False
+        self.query_one("#features_widget", FeaturesWidget).display = False
+        
+        # Re-run with current pattern if exists
+        if self.pattern:
+            self.run_worker(self.update_jq(self.pattern), exclusive=True)
+        else:
+            groups_widget = self.query_one("#groups", Static)
+            groups_widget.update(
+                "[cyan]JQ Mode Active[/cyan]\n\n"
+                "Enter a JQ filter above.\n\n"
+                "[bold]Examples:[/bold]\n"
+                "  .                    - Pretty print all\n"
+                "  .key                 - Get value of key\n"
+                "  .[0]                 - Get first array item\n"
+                "  . | keys             - List keys\n\n"
+                "[dim]Press F2 for JQ help[/dim]"
+            )
     
     async def _switch_to_regex_mode(self, profile: RegexProfile) -> None:
         """Switch the UI back to Regex mode."""
         self.is_awk_mode = False
+        self.is_jq_mode = False
         self.awk_executor = None
         self.awk_records = []
         
@@ -464,6 +549,69 @@ class RexiApp(App[ReturnType]):
         
         return "\n".join(lines)
 
+    async def update_jq(self, jq_program: str):
+        """Execute JQ program and update UI."""
+        if not self.jq_executor:
+            return
+            
+        # Run in thread pool to avoid blocking
+        output, error = await asyncio.to_thread(
+            self.jq_executor.execute,
+            jq_program,
+            self.input_content
+        )
+        
+        output_widget = self.query_one("#output", Static)
+        groups_widget = self.query_one("#groups", Static)
+        
+        if error:
+            # Show error
+            from rich.markup import escape
+            groups_widget.update(f"[red]JQ Error:[/red]\n{escape(error)}")
+            output_widget.update(self._add_line_numbers(self.input_content))
+            return
+        
+        # Show JQ output in the main area (it replaces the content view)
+        # For JQ, we want to see the result of the transformation
+        numbered_output = self._add_line_numbers(output if output else "(no output)")
+        output_widget.update(numbered_output)
+        
+        # Update status in side panel
+        groups_widget.update("[green]JQ execution successful[/green]")
+
+    def get_jq_help_content(self) -> str:
+        """Generate JQ-specific help content."""
+        lines = []
+        lines.append("[bold cyan]JQ Quick Reference[/bold cyan]\n")
+        
+        lines.append("[bold]Basic Filters:[/bold]")
+        lines.append("[cyan].[/cyan]             Identity (pretty print)")
+        lines.append("[cyan].foo[/cyan]          Value of key 'foo'")
+        lines.append("[cyan].[0][/cyan]          First item in array")
+        lines.append("[cyan].[][/cyan]          Iterate over values\n")
+        
+        lines.append("[bold]Pipes & Functions:[/bold]")
+        lines.append("[cyan]|[/cyan]             Pipe output to next filter")
+        lines.append("[cyan]keys[/cyan]          List keys")
+        lines.append("[cyan]length[/cyan]        Length of string/array")
+        lines.append("[cyan]select(foo)[/cyan]   Filter by condition\n")
+        
+        lines.append("[bold]Constructors:[/bold]")
+        lines.append("[cyan]{a: .b}[/cyan]      Build object")
+        lines.append("[cyan][.foo, .bar][/cyan] Build array\n")
+        
+        lines.append("[bold]Examples:[/bold]")
+        lines.append("[cyan].users[].name[/cyan]")
+        lines.append("  Get name of every user")
+        lines.append("[cyan]select(.id > 10)[/cyan]")
+        lines.append("  Select items with id > 10")
+        lines.append("[cyan]keys[/cyan]")
+        lines.append("  Show available keys\n")
+        
+        lines.append("[dim]Press F2 to return to output view[/dim]")
+        
+        return "\n".join(lines)
+
 
 
     def action_quit(self) -> None:
@@ -583,6 +731,23 @@ class RexiApp(App[ReturnType]):
         """Handle button press events."""
         if event.button.id == "toggle_view":
             self.action_toggle_view()
+        elif event.button.id == "copy_pattern":
+            self.action_copy_pattern()
+            
+    def action_copy_pattern(self) -> None:
+        """Copy current pattern to clipboard."""
+        if not self.pattern:
+            self.notify("Nothing to copy", severity="warning")
+            return
+            
+        if pyperclip:
+            try:
+                pyperclip.copy(self.pattern)
+                self.notify("Pattern copied to clipboard!", severity="information")
+            except Exception as e:
+                self.notify(f"Failed to copy: {str(e)}", severity="error")
+        else:
+            self.notify("pyperclip not installed. Cannot copy.", severity="error")
 
     @on(Input.Changed)
     @on(Input.Changed)
@@ -612,6 +777,8 @@ class RexiApp(App[ReturnType]):
         # Route to AWK or Regex based on mode
         if self.is_awk_mode:
             self.run_worker(self.update_awk(clean_value), exclusive=True)
+        elif self.is_jq_mode:
+            self.run_worker(self.update_jq(clean_value), exclusive=True)
         else:
             self.run_worker(self.update_regex(clean_value), exclusive=True)
     
@@ -631,6 +798,9 @@ class RexiApp(App[ReturnType]):
                 if profile.profile_type == "awk":
                     # Switch to AWK mode
                     await self._switch_to_awk_mode(profile)
+                elif profile.profile_type == "jq":
+                    # Switch to JQ mode
+                    await self._switch_to_jq_mode(profile)
                 else:
                     # Switch to Regex mode
                     await self._switch_to_regex_mode(profile)
