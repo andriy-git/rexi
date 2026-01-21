@@ -44,6 +44,15 @@ Footer {
 #button-row {
     height: auto;
     padding-top: 1;
+    align-vertical: middle;
+}
+
+#match-counter {
+    width: auto;
+    margin-left: 2;
+    color: $primary;
+    text-style: bold;
+    padding: 0 1;
 }
 
 Input {
