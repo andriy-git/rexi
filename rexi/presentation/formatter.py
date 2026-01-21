@@ -1,6 +1,7 @@
 """Formatter for regex match output."""
 
 from rich.text import Text
+from rich.markup import escape
 from ..data_providers.regex_provider import GroupMatch
 
 
@@ -147,7 +148,7 @@ class RegexFormatter:
             examples = unique_values[:5]
             
             if examples:
-                examples_str = ", ".join([f"[cyan]{repr(v[:20])}[/cyan]" if len(v) <= 20 else f"[cyan]{repr(v[:17])}...[/cyan]" for v in examples])
+                examples_str = ", ".join([f"[cyan]{escape(repr(v[:20]))}[/cyan]" if len(v) <= 20 else f"[cyan]{escape(repr(v[:17]))}...[/cyan]" for v in examples])
                 lines.append(f"  Examples: {examples_str}")
                 
                 if len(unique_values) > 5:
