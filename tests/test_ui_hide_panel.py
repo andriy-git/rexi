@@ -28,6 +28,7 @@ class TestHideSidePanel(unittest.TestCase):
             return MagicMock()
             
         self.app.query_one.side_effect = query_side_effect
+        self.app._cache_widgets()
 
     def test_toggle_view_cycle_regex_mode(self):
         # Initial state: 0 (Groups)
